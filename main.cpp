@@ -224,6 +224,7 @@ struct mm_file_type file_types[] = {
 	{ "replay", ".dat", 0x68000, 0x0, replay_key_table },
 	{ "network", "network.dat", 0x48000, 0x0, network_key_table },
 	{ "thumb", ".btl", 0x1C000, 0x0, thumb_key_table },
+	{ "thumb", ".jpg", 0x1C000, 0x0, thumb_key_table },
 	{ "course", ".bcd", 0x5C000, sizeof(SavePartitionHeader), course_key_table }
 };
 
