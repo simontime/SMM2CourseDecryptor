@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+#include <mbedtls/cmac.h>
 
 extern "C" {
 #include "aes.h"
@@ -152,6 +153,32 @@ uint32_t rand_gen(uint32_t *rand_state)
 	return n;
 }
 
+const u128 cmac(const void* buffer, uint64_t size, const uint32_t* key)
+{
+	u128 result;
+
+	unsigned char m[100], m_len = 32;
+	unsigned char out[16], out1[16], out2[16];
+	size_t d_len;
+
+
+	mbedtls_cipher_context_t ctx;
+	const mbedtls_cipher_info_t* cipherInfo = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
+
+	if (cipherInfo == NULL)
+	{
+		return result;
+	}
+
+	mbedtls_cipher_init(&ctx);
+	mbedtls_cipher_setup(&ctx, cipherInfo);
+	mbedtls_cipher_cmac_starts(&ctx, (const u8*)key, sizeof(uint32_t) * 4 * 8);
+	mbedtls_cipher_cmac_update(&ctx, (const u8*)buffer, size);
+	mbedtls_cipher_cmac_finish(&ctx, (u8*)&result);
+
+	return result;
+}
+
 void gen_key(uint32_t *key_table, uint32_t *out_key, uint32_t *rand_state)
 {
 	out_key[0] = 0;
@@ -265,6 +292,7 @@ int main(int argc, char **argv)
 	
 	uint32_t rand_state[STATE_SIZE];
 	uint32_t key_state[STATE_SIZE];
+	uint32_t auth_state[STATE_SIZE];
 
 
 	struct mm_file_type* file_type = getFileType(inFileName, sz);
@@ -294,6 +322,7 @@ int main(int argc, char **argv)
 
 	rand_init(rand_state, cryptInfo.rand);
 	gen_key(file_type->key_table, key_state, rand_state);
+	gen_key(file_type->key_table, auth_state, rand_state);
 
 	AES_init_ctx_iv(&ctx, (uint8_t *)key_state, end);	
 
@@ -309,6 +338,7 @@ int main(int argc, char **argv)
 			header->setCrc32(bodyLen);
 		}
 		printf("Encrypting %s %s to %s...\n", file_type->name, inFileName, outFileName);
+		cryptInfo.mac = cmac(body, bodyLen, auth_state);
 		AES_CBC_encrypt_buffer(&ctx, body, bodyLen);
 		fwrite(buf, 1, sz, out);
 	}
